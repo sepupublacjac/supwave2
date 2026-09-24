@@ -57,6 +57,23 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   Duration _position = Duration.zero;
   final Set<String> _likedOverrides = {};
 
+  /// A permutation of `_queue`'s indices, only meaningful while [_shuffle]
+  /// is true: [next]/[previous] walk this order instead of `_queue`'s own,
+  /// so shuffling doesn't touch the queue's actual (displayed, reorderable)
+  /// order. Regenerated - keeping the current track first, so turning
+  /// shuffle on mid-playback doesn't jump away from what's already playing
+  /// - whenever it's turned on or the queue's contents change while it's on.
+  List<int> _shuffleOrder = [];
+
+  void _regenerateShuffleOrder() {
+    final indices = List.generate(_queue.length, (i) => i)..shuffle();
+    if (_currentIndex >= 0) {
+      indices.remove(_currentIndex);
+      indices.insert(0, _currentIndex);
+    }
+    _shuffleOrder = indices;
+  }
+
   Song? get currentSong => _currentIndex >= 0 && _currentIndex < _queue.length
       ? _queue[_currentIndex]
       : null;
@@ -171,6 +188,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     _queue = List.of(songs);
     _currentIndex = startIndex;
     _position = Duration.zero;
+    if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
     await _loadCurrent();
     _persistSession();
@@ -186,7 +204,39 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _queue.add(song);
+    if (_shuffle) _regenerateShuffleOrder();
     AppLogger.instance.log('Added "${song.title}" to queue');
+    notifyListeners();
+    _persistSession();
+  }
+
+  /// Inserts [song] right after the currently playing track, so it plays
+  /// next without disturbing anything already later in the queue - unlike
+  /// [addToQueue], which appends to the end. Starts playing it immediately
+  /// if nothing is queued yet.
+  ///
+  /// If [song] is already somewhere else in the queue, it's *moved* to play
+  /// next rather than duplicated - both because the queue sheet keys each
+  /// row by song id (so two rows sharing one id is a real bug, not just
+  /// visual noise), and because moving it is exactly the manual
+  /// re-arranging this exists to avoid.
+  Future<void> playNext(Song song) async {
+    if (_queue.isEmpty) {
+      await playQueue([song]);
+      return;
+    }
+    final existingIndex = _queue.indexWhere((s) => s.id == song.id);
+    if (existingIndex == _currentIndex) {
+      // Already the current track - there's nothing to move.
+      return;
+    }
+    if (existingIndex != -1) {
+      _queue.removeAt(existingIndex);
+      if (existingIndex < _currentIndex) _currentIndex -= 1;
+    }
+    _queue.insert(_currentIndex + 1, song);
+    if (_shuffle) _regenerateShuffleOrder();
+    AppLogger.instance.log('"${song.title}" will play next');
     notifyListeners();
     _persistSession();
   }
@@ -220,7 +270,18 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> next() async {
     if (_queue.isEmpty) return;
-    if (_currentIndex < _queue.length - 1) {
+    if (_shuffle) {
+      final pos = _shuffleOrder.indexOf(_currentIndex);
+      if (pos != -1 && pos < _shuffleOrder.length - 1) {
+        _currentIndex = _shuffleOrder[pos + 1];
+      } else if (_repeatMode == PlayerRepeatMode.all) {
+        _regenerateShuffleOrder();
+        _currentIndex = _shuffleOrder.first;
+      } else {
+        await _engine.stop();
+        return;
+      }
+    } else if (_currentIndex < _queue.length - 1) {
       _currentIndex++;
     } else if (_repeatMode == PlayerRepeatMode.all) {
       _currentIndex = 0;
@@ -236,6 +297,18 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> previous() async {
     if (_queue.isEmpty) return;
     if (_position.inSeconds > 3) {
+      await _engine.seek(Duration.zero);
+      return;
+    }
+    if (_shuffle) {
+      final pos = _shuffleOrder.indexOf(_currentIndex);
+      if (pos > 0) {
+        _currentIndex = _shuffleOrder[pos - 1];
+        _position = Duration.zero;
+        notifyListeners();
+        await _loadCurrent();
+        return;
+      }
       await _engine.seek(Duration.zero);
       return;
     }
@@ -259,6 +332,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
   void toggleShuffle() {
     _shuffle = !_shuffle;
+    if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
   }
 
@@ -300,6 +374,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     } else if (oldIndex > _currentIndex && newIndex <= _currentIndex) {
       _currentIndex += 1;
     }
+    if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
     _persistSession();
   }
@@ -319,6 +394,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     } else if (index < _currentIndex) {
       _currentIndex -= 1;
     }
+    if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
     _persistSession();
   }

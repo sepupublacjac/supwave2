@@ -28,7 +28,8 @@ class MiniPlayer extends StatelessWidget {
 
     return M3ECard(
       variant: M3ECardVariant.filled,
-      onPressed: () => navigatorKey.currentState?.push(MainPlayerScreen.route()),
+      onPressed: () =>
+          navigatorKey.currentState?.push(MainPlayerScreen.route()),
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.zero,
       elevation: 0,

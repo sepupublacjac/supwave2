@@ -58,4 +58,9 @@ class FakeAudioEngine implements AudioEngine {
     await _playingController.close();
     await _completedController.close();
   }
+
+  /// Test-only: simulates the current track finishing playback, as if
+  /// `completedStream` had fired for real - there's no public API to drive
+  /// it externally otherwise.
+  void simulateTrackCompleted() => _completedController.add(null);
 }

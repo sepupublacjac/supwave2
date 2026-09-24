@@ -300,31 +300,82 @@ class MainPlayerScreen extends StatelessWidget {
       builder: (sheetContext) {
         return SizedBox(
           height: MediaQuery.of(sheetContext).size.height * 0.6,
-          child: Consumer<PlayerController>(
-            builder: (context, controller, _) {
-              final queue = controller.queue;
-              final colorScheme = M3ETheme.of(context).colorScheme;
-              final repo = context.read<NavidromeRepository>();
+          child: const _QueueSheetList(),
+        );
+      },
+    );
+  }
+}
 
-              // Flutter's own ReorderableListView + Dismissible, not the
-              // M3E dismissible/reorder list: M3E's drag-to-reorder arms via
-              // a raw pointer long-press timer that never formally competes
-              // in the gesture arena, so when this list was wrapped in our
-              // own SingleChildScrollView (needed since M3EDismissibleColumn
-              // has no scrollable variant), the ScrollView's own drag
-              // recognizer would win the arena on any real movement and
-              // drag the whole sheet/list along with the row instead of
-              // reordering it. ReorderableListView owns its own Scrollable
-              // and is built to coexist with descendant drag handles, so it
-              // doesn't have this problem.
-              return ReorderableListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: queue.length,
-                // onReorderItem (not the deprecated onReorder) already
-                // adjusts newIndex for the removed-item shift, matching
-                // PlayerController.reorderQueue's expectations below.
-                onReorderItem: controller.reorderQueue,
-                itemBuilder: (context, index) {
+/// The queue bottom sheet's list content, split out from [MainPlayerScreen]
+/// so it can own a [ScrollController] and auto-scroll to whichever song is
+/// currently playing as soon as it's shown - otherwise a long queue always
+/// opens scrolled to the top, forcing the user to hunt for the current song
+/// before they can even see what's coming up next.
+class _QueueSheetList extends StatefulWidget {
+  const _QueueSheetList();
+
+  @override
+  State<_QueueSheetList> createState() => _QueueSheetListState();
+}
+
+class _QueueSheetListState extends State<_QueueSheetList> {
+  final _scrollController = ScrollController();
+  bool _didScrollToCurrent = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToCurrentIfNeeded(PlayerController controller) {
+    if (_didScrollToCurrent) return;
+    final queue = controller.queue;
+    final currentIndex = controller.currentIndex;
+    if (queue.length <= 1 || currentIndex <= 0) return;
+    _didScrollToCurrent = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      // Rows aren't a fixed height, so rather than guess one, jump to the
+      // same fraction through the scroll range as the current index is
+      // through the queue - close enough to bring it on screen without
+      // needing per-row measurement.
+      final target = (currentIndex / (queue.length - 1)) * maxExtent;
+      _scrollController.jumpTo(target.clamp(0, maxExtent));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerController>(
+      builder: (context, controller, _) {
+        _scrollToCurrentIfNeeded(controller);
+        final queue = controller.queue;
+        final colorScheme = M3ETheme.of(context).colorScheme;
+        final repo = context.read<NavidromeRepository>();
+
+        // Flutter's own ReorderableListView + Dismissible, not the
+        // M3E dismissible/reorder list: M3E's drag-to-reorder arms via
+        // a raw pointer long-press timer that never formally competes
+        // in the gesture arena, so when this list was wrapped in our
+        // own SingleChildScrollView (needed since M3EDismissibleColumn
+        // has no scrollable variant), the ScrollView's own drag
+        // recognizer would win the arena on any real movement and
+        // drag the whole sheet/list along with the row instead of
+        // reordering it. ReorderableListView owns its own Scrollable
+        // and is built to coexist with descendant drag handles, so it
+        // doesn't have this problem.
+        return ReorderableListView.builder(
+          scrollController: _scrollController,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          itemCount: queue.length,
+          // onReorderItem (not the deprecated onReorder) already
+          // adjusts newIndex for the removed-item shift, matching
+          // PlayerController.reorderQueue's expectations below.
+          onReorderItem: controller.reorderQueue,
+          itemBuilder: (context, index) {
                   final song = queue[index];
                   final isCurrent = index == controller.currentIndex;
                   return Dismissible(
@@ -352,6 +403,9 @@ class MainPlayerScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: M3ECard(
                         variant: M3ECardVariant.filled,
+                        border: isCurrent
+                            ? BorderSide(color: colorScheme.primary, width: 2)
+                            : null,
                         padding: EdgeInsets.zero,
                         onPressed: () =>
                             controller.playQueue(queue, startIndex: index),
@@ -413,12 +467,9 @@ class MainPlayerScreen extends StatelessWidget {
                     ),
                   );
                 },
-              );
-            },
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
   }
 }
 

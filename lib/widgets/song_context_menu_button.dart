@@ -11,9 +11,10 @@ import '../state/playlists_controller.dart';
 import 'add_to_playlist_sheet.dart';
 import 'offline_actions.dart';
 
-/// The "..." context menu for a song row on Playlist / Album / Artist
-/// screens: add to queue, add to playlist, (optionally) remove from the
-/// current playlist, available offline, view artist, view album.
+/// The "..." context menu for a song row on Playlist / Album / Artist /
+/// Search / Liked Songs screens: play next, add to queue, add to playlist,
+/// (optionally) remove from the current playlist, available offline, view
+/// artist, view album.
 class SongContextMenuButton extends StatelessWidget {
   const SongContextMenuButton({
     super.key,
@@ -37,6 +38,14 @@ class SongContextMenuButton extends StatelessWidget {
         onPressed: open,
       ),
       children: [
+        M3EMenuEntry(
+          label: 'Play next',
+          leading: const Icon(M3EIcons.play_arrow),
+          onPressed: () {
+            playerController.playNext(song);
+            M3ESnackbar.show(context, message: '"${song.title}" will play next');
+          },
+        ),
         M3EMenuEntry(
           label: 'Add to queue',
           leading: const Icon(M3EIcons.queue_music),

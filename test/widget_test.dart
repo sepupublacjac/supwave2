@@ -496,6 +496,7 @@ void main() {
     await tester.tap(find.byIcon(M3EIcons.more_vert).at(1), warnIfMissed: false);
     await settle(tester);
 
+    expect(find.text('Play next'), findsOneWidget);
     expect(find.text('Add to queue'), findsOneWidget);
     expect(find.text('Add to playlist'), findsOneWidget);
     expect(find.text('Remove from playlist'), findsOneWidget);
@@ -527,4 +528,57 @@ void main() {
     final remainingCount = tester.widgetList<M3EListItem>(find.byType(M3EListItem)).length;
     expect(remainingCount, currentSongCount - 1);
   });
+
+  testWidgets(
+    '"Play next" on a song context menu inserts it right after the current '
+    'track in the queue',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(buildAuthenticatedApp(FakeNavidromeRepository()));
+      await settle(tester);
+
+      await tester.tap(find.text('Playlists'));
+      await settle(tester);
+      await tester.tap(find.text('Chill Vibes'));
+      await settle(tester);
+      // Chill Vibes is [Song 1, Song 2, Song 5]; playing it starts at Song 1.
+      await tester.tap(find.widgetWithText(M3EButton, 'Play'));
+      await settle(tester);
+
+      // "Play next" the last song row (Song 5) from its context menu -
+      // ensureVisible first, since the playlist header pushes it below the
+      // fold on this test's viewport.
+      final lastRowMenu = find.byIcon(M3EIcons.more_vert).last;
+      await tester.ensureVisible(lastRowMenu);
+      await settle(tester);
+      await tester.tap(lastRowMenu, warnIfMissed: false);
+      await settle(tester);
+      await tester.tap(find.text('Play next'));
+      await settle(tester);
+      expect(find.textContaining('will play next'), findsOneWidget);
+
+      // The playlist detail screen is a pushed route; pop back to reach the
+      // mini player and open the full player's queue sheet.
+      await tester.pageBack();
+      await settle(tester);
+      final miniPlayerArt = find.byWidgetPredicate(
+        (widget) => widget is Hero && widget.tag == 'player-art',
+      );
+      await tester.tap(miniPlayerArt);
+      await settle(tester);
+      // The full player screen scrolls (its content can exceed the viewport
+      // height), so the queue button may start out below the fold.
+      final queueButton = find.byIcon(M3EIcons.queue_music);
+      await tester.ensureVisible(queueButton);
+      await settle(tester);
+      await tester.tap(queueButton);
+      await settle(tester);
+
+      final titles = tester
+          .widgetList<M3EListItem>(find.byType(M3EListItem))
+          .map((item) => item.headline)
+          .toList();
+      // Song 5 moved from the end to right after the still-playing Song 1.
+      expect(titles, ['Song 1', 'Song 5', 'Song 2']);
+    },
+  );
 }
