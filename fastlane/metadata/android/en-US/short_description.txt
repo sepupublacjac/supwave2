@@ -1,0 +1,1 @@
+A Material 3 Expressive music player client for Navidrome servers

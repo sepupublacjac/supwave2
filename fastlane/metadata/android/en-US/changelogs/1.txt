@@ -1,0 +1,4 @@
+Initial release: browse/search your Navidrome library, playlists and liked
+songs, real audio playback with a persistent media notification, a playback
+session that survives closing the app, offline downloads, and Material 3
+Expressive styling with dynamic color throughout.

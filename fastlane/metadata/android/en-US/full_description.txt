@@ -1,0 +1,17 @@
+Supwave2 is a music player client built specifically for Navidrome, implementing
+Material 3 Expressive (dynamic color, expressive shapes and motion) throughout.
+
+Features:
+
+* Browse and search your music library, with playlists and liked songs
+* Real audio playback with a persistent media notification (play/pause/next/stop)
+  and a playback session that survives closing the app
+* Shuffle, repeat, and queue management, including "play next" from any song's
+  context menu
+* Offline downloads, so you can listen without a network connection
+* Album art caching
+* Playlist management: create, delete, and add/remove songs
+* Dynamic color and Material 3 Expressive styling throughout
+
+Supwave2 requires your own Navidrome server - it does not include or connect to
+any music of its own. See https://www.navidrome.org/ to set one up.

@@ -52,3 +52,14 @@ This is a standard Flutter project. See [Flutter's docs](https://docs.flutter.de
 flutter pub get
 flutter run
 ```
+
+## License
+
+Source code is licensed under the [Apache License 2.0](LICENSE).
+
+The app icon and in-app artwork (`assets/icon/legacy.png`, `assets/supwave.png`)
+combine a free icon from [Flaticon](https://www.flaticon.com/), used under
+Flaticon's free license, which requires attribution:
+
+> [Sound icon](https://www.flaticon.com/free-icon/sound_865548) created by
+> Good Ware - Flaticon

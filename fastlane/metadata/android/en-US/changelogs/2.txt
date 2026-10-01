@@ -1,0 +1,4 @@
+Fixed shuffle (it now actually shuffles) and verified repeat mode. Added
+"play next" to every song's context menu, to queue it right after the
+current track. The queue sheet now auto-scrolls to the currently playing
+song and outlines it so it's easy to spot.
