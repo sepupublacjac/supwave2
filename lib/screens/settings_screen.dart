@@ -28,7 +28,7 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   Text('Server', style: typography.emphasized.titleSmall),
                   const SizedBox(height: 8),
-                  M3ECardList(
+                  M3EList(
                     variant: M3ECardVariant.filled,
                     itemCount: 3,
                     itemBuilder: (context, index) {
@@ -57,7 +57,7 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text('Storage', style: typography.emphasized.titleSmall),
                   const SizedBox(height: 8),
-                  M3ECardList(
+                  M3EList(
                     variant: M3ECardVariant.filled,
                     itemCount: 2,
                     onTap: (index) async {

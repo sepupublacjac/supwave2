@@ -8,7 +8,7 @@ import '../state/player_controller.dart';
 import 'album_art.dart';
 import 'song_context_menu_button.dart';
 
-/// A list of songs rendered as a filled [M3ECardList] (grouped rows with
+/// A list of songs rendered as a filled [M3EList] (grouped rows with
 /// dynamic corner rounding), replacing a plain [SliverList] of loose tiles.
 class SongTile extends StatelessWidget {
   const SongTile({
@@ -34,7 +34,7 @@ class SongTile extends StatelessWidget {
     final colorScheme = M3ETheme.of(context).colorScheme;
     final typography = M3ETheme.of(context).typography;
 
-    return M3ECardList(
+    return M3EList(
       variant: M3ECardVariant.filled,
       itemCount: songs.length,
       onTap: onSongTap,

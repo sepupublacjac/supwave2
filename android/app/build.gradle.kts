@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "com.megamendung.supwave2"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android 14.x compiles against SDK 37, one above
+    // Flutter's current default - and AGP requires the app to match.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

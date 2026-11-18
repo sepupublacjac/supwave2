@@ -33,7 +33,7 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^2.0.0
 
   # Full Material 3 Expressive component set (buttons, nav, progress, etc.),
   # built on package:material_ui instead of package:flutter/material.dart.
@@ -42,13 +42,11 @@ dependencies:
 
   # Declared explicitly since every screen imports it directly in place of
   # package:flutter/material.dart (required by material_3_expressive).
-  # Pinned: newer material_ui releases use @awaitNotRequired, which our
-  # installed stable Flutter's foundation.dart doesn't re-export yet.
-  material_ui: 1.1.1
+  # Needs Flutter 3.47+ (newer releases use @awaitNotRequired).
+  material_ui: ^1.10.0
 
-  # Same @awaitNotRequired incompatibility as material_ui above, one level
-  # down (material_ui depends on this for adaptive Cupertino widgets).
-  cupertino_ui: 1.0.2
+  # material_ui depends on this for adaptive Cupertino widgets.
+  cupertino_ui: ^1.1.6
 
   # Lightweight state management for the (dummy) player state.
   provider: ^6.1.2
@@ -61,20 +59,20 @@ dependencies:
   shared_preferences: ^2.3.3
 
   # Real audio playback (streaming from Navidrome's /rest/stream.view).
-  just_audio: ^0.9.42
+  just_audio: ^0.10.6
 
   # Disk+memory caching for cover art, so repeat views don't re-download it.
-  cached_network_image: ^3.4.1
+  cached_network_image: ^4.0.6
 
   # App-private storage directory for downloaded (offline) song files.
   path_provider: ^2.1.5
   audio_service: ^0.18.19
 
   # Requests the Android 13+ runtime notification permission (without it,
-  # the playback notification silently never shows). Pinned below 13.x:
-  # permission_handler_android 14.x requires compileSdk 37, one version
-  # ahead of what this project's Android Gradle Plugin currently supports.
-  permission_handler: ^11.3.1
+  # the playback notification silently never shows). 13.x pulls in
+  # permission_handler_android 14.x, which needs compileSdk 37 (see
+  # android/app/build.gradle.kts) and thus AGP 9.5+.
+  permission_handler: ^13.0.2
 
 dev_dependencies:
   flutter_test:

@@ -114,7 +114,7 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                child: M3ECardList(
+                child: M3EList(
                   variant: M3ECardVariant.filled,
                   itemCount: 3,
                   onTap: (index) {

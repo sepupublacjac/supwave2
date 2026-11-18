@@ -168,7 +168,7 @@ class _SearchScreenState extends State<SearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverToBoxAdapter(
-                  child: M3ECardList(
+                  child: M3EList(
                     variant: M3ECardVariant.filled,
                     itemCount: results.artists.length,
                     onTap: (index) => Navigator.of(context).push(

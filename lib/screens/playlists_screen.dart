@@ -131,7 +131,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               sliver: SliverToBoxAdapter(
-                child: M3ECardList(
+                child: M3EList(
                   variant: M3ECardVariant.filled,
                   itemCount: playlists.length,
                   itemBuilder: (context, index) => _PlaylistRow(playlist: playlists[index]),

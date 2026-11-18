@@ -3,13 +3,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart'
-    show Hero, ReorderableListView, Scrollable, Widget;
+    show BackButtonIcon, Hero, ReorderableListView, Scrollable, Size, Widget;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supwave_gen2/main.dart';
 import 'package:supwave_gen2/navidrome/playback_audio_handler.dart';
 import 'package:supwave_gen2/state/app_logger.dart';
 import 'package:supwave_gen2/state/auth_controller.dart';
+import 'package:supwave_gen2/widgets/song_tile.dart';
 
 import 'fakes/fake_audio_engine.dart';
 import 'fakes/fake_navidrome_repository.dart';
@@ -293,7 +294,7 @@ void main() {
     await tester.tap(find.text('Playlists'));
     await settle(tester);
 
-    expect(find.byType(M3ECardList), findsOneWidget);
+    expect(find.byType(M3EList), findsOneWidget);
 
     await tester.tap(find.text('Chill Vibes'));
     await settle(tester);
@@ -391,8 +392,8 @@ void main() {
     await tester.tap(find.text('Add to playlist'));
     await settle(tester);
 
-    expect(find.byType(M3ECardList), findsWidgets);
-    // warnIfMissed off: M3ECardList wraps rows in extra gesture layers, so
+    expect(find.byType(M3EList), findsWidgets);
+    // warnIfMissed off: M3EList wraps rows in extra gesture layers, so
     // the tap still reaches the row underneath even if the exact hit-tested
     // render object differs from the M3EListItem finder's own box.
     await tester.tap(find.byType(M3EListItem).first, warnIfMissed: false);
@@ -423,6 +424,12 @@ void main() {
   testWidgets('Profile popup shows account info and opens Logs and Settings', (
     WidgetTester tester,
   ) async {
+    // The profile sheet isn't scrollable, and M3EList rows (material_3_expressive
+    // 1.2+) are tall enough that its last rows fall below the default 800x600
+    // test surface - use a phone-like height so every row is tappable.
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(buildAuthenticatedApp(FakeNavidromeRepository()));
     await settle(tester);
 
@@ -440,7 +447,10 @@ void main() {
     await settle(tester);
     expect(find.text('App started'), findsOneWidget);
 
-    await tester.pageBack();
+    // Not tester.pageBack(): since material_3_expressive 1.2, M3EAppBar wraps
+    // its implied back button in an M3ETooltip rather than Flutter's Tooltip,
+    // so pageBack's "Back" tooltip lookup no longer finds it.
+    await tester.tap(find.byType(BackButtonIcon));
     await settle(tester);
 
     // Reopen the popup and jump to Settings.
@@ -514,19 +524,25 @@ void main() {
     await settle(tester);
     expect(find.byType(M3EProgressIndicator), findsWidgets);
 
-    // Re-enter the playlist and remove a song - the row count should drop
-    // by one.
+    // Re-enter the playlist and remove its first song. Checked by title, not
+    // by counting built rows: SongTile is a lazy sliver, so how many rows
+    // exist depends on the viewport, not on how many songs the playlist has.
+    // (Scoped to SongTile because the mini player also shows the playing
+    // song's title.)
     await tester.tap(find.text('Chill Vibes'));
     await settle(tester);
 
-    final currentSongCount = tester.widgetList<M3EListItem>(find.byType(M3EListItem)).length;
+    final firstSongRow = find.descendant(
+      of: find.byType(SongTile),
+      matching: find.text('Song 1'),
+    );
+    expect(firstSongRow, findsOneWidget);
     await tester.tap(find.byIcon(M3EIcons.more_vert).at(1), warnIfMissed: false);
     await settle(tester);
     await tester.tap(find.text('Remove from playlist'));
     await settle(tester);
 
-    final remainingCount = tester.widgetList<M3EListItem>(find.byType(M3EListItem)).length;
-    expect(remainingCount, currentSongCount - 1);
+    expect(firstSongRow, findsNothing);
   });
 
   testWidgets(

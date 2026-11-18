@@ -25,7 +25,7 @@ void showAddToPlaylistSheet(BuildContext context, Song song) {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  M3ECardList(
+                  M3EList(
                     variant: M3ECardVariant.filled,
                     itemCount: playlists.length,
                     onTap: (index) async {
