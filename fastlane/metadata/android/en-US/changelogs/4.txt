@@ -1,0 +1,5 @@
+Much smoother scrolling in long playlists: songs are now built as you
+scroll instead of all at once, and playback progress no longer rebuilds the
+whole list five times a second. Updated to Flutter 3.50 and the latest
+versions of all dependencies (Material 3 Expressive 1.2, just_audio 0.10,
+permission_handler 13) plus the newer Android build toolchain.
