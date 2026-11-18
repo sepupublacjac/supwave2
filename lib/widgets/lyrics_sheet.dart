@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/lyrics.dart';
 import '../models/song.dart';
 import '../state/lyrics_controller.dart';
+import '../state/lyrics_settings.dart';
 import '../state/player_controller.dart';
 
 /// Opens the lyrics of whatever is playing in a bottom sheet. The sheet
@@ -141,7 +142,22 @@ class _SongLyricsState extends State<_SongLyrics> {
         }
         final lyrics = snapshot.data;
         if (lyrics == null) return message('No lyrics for this song');
-        return lyrics.synced ? _SyncedLyrics(lyrics: lyrics) : _PlainLyrics(lyrics: lyrics);
+
+        final view = lyrics.synced ? _SyncedLyrics(lyrics: lyrics) : _PlainLyrics(lyrics: lyrics);
+        final source = lyrics.source;
+        if (source == null) return view;
+        return Column(
+          children: [
+            Expanded(child: view),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+              child: Text(
+                'Lyrics from $source',
+                style: theme.typography.baseline.bodySmall.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -194,6 +210,7 @@ class _SyncedLyricsState extends State<_SyncedLyrics> {
   static const _followResumeDelay = Duration(seconds: 4);
 
   late final PlayerController _player = context.read<PlayerController>();
+  late final LyricsSettings _settings = context.read<LyricsSettings>();
   late final List<GlobalKey> _lineKeys = List.generate(widget.lyrics.lines.length, (_) => GlobalKey());
 
   int _current = -1;
@@ -203,20 +220,27 @@ class _SyncedLyricsState extends State<_SyncedLyrics> {
   @override
   void initState() {
     super.initState();
-    _current = widget.lyrics.indexAt(_player.position);
+    _current = _lineAt(_player.position);
     _player.positionListenable.addListener(_onPosition);
+    _settings.addListener(_onPosition); // the offset can change under us
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent(animate: false));
   }
 
   @override
   void dispose() {
     _player.positionListenable.removeListener(_onPosition);
+    _settings.removeListener(_onPosition);
     _resumeFollow?.cancel();
     super.dispose();
   }
 
+  /// The line being sung at [position], after the user's lyric offset: with a
+  /// positive offset every line starts that much later, so the audio has to
+  /// be that much further along to reach it.
+  int _lineAt(Duration position) => widget.lyrics.indexAt(position - _settings.offset);
+
   void _onPosition() {
-    final index = widget.lyrics.indexAt(_player.positionListenable.value);
+    final index = _lineAt(_player.positionListenable.value);
     if (index == _current) return;
     setState(() => _current = index);
     if (_follow) _scrollToCurrent();
@@ -270,21 +294,36 @@ class _SyncedLyricsState extends State<_SyncedLyrics> {
                   GestureDetector(
                     key: _lineKeys[i],
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => _player.seekToPosition(lines[i].start!),
+                    onTap: () => _player.seekToPosition(lines[i].start! + _settings.offset),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 250),
-                        style: i == _current
-                            ? theme.typography.emphasized.headlineSmall.copyWith(color: colorScheme.primary)
-                            : theme.typography.baseline.titleLarge.copyWith(
-                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 250),
+                            style: i == _current
+                                ? theme.typography.emphasized.headlineSmall.copyWith(color: colorScheme.primary)
+                                : theme.typography.baseline.titleLarge.copyWith(
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.65),
+                                  ),
+                            child: Text(
+                              // An empty timed line is a pause/instrumental gap.
+                              lines[i].text.isEmpty ? '♪' : lines[i].text,
+                              key: i == _current ? const ValueKey('current-lyric-line') : null,
+                            ),
+                          ),
+                          if (lines[i].translation case final translation?)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                translation,
+                                style: theme.typography.baseline.bodyLarge.copyWith(
+                                  color: colorScheme.onSurfaceVariant.withValues(alpha: i == _current ? 1 : 0.55),
+                                ),
                               ),
-                        child: Text(
-                          // An empty timed line is a pause/instrumental gap.
-                          lines[i].text.isEmpty ? '♪' : lines[i].text,
-                          key: i == _current ? const ValueKey('current-lyric-line') : null,
-                        ),
+                            ),
+                        ],
                       ),
                     ),
                   ),

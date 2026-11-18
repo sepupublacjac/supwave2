@@ -26,7 +26,10 @@ specifically on [Navidrome](https://www.navidrome.org/) as the backend.
 - Real audio playback, with a persistent Android media notification
   (play/pause/next/stop) and a session that survives closing the app
 - Song lyrics, highlighted line by line and kept in view as the song plays when
-  your server has timed lyrics (plain text otherwise)
+  timed lyrics are available (plain text otherwise). They come from your server
+  and, if you turn it on in Settings, from NetEase and lrclib.net (off by
+  default: it sends the song's artist, title, album and length to them), with
+  optional NetEase translations and a timing offset
 - Offline downloads and album art caching
 - Playlist management (create, delete, add/remove songs)
 - Dynamic color and Material 3 Expressive styling throughout

@@ -7,6 +7,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
+import 'lyrics/lrclib_provider.dart';
+import 'lyrics/lyrics_provider.dart';
+import 'lyrics/netease_provider.dart';
 import 'navidrome/audio_engine.dart';
 import 'navidrome/navidrome_api_repository.dart';
 import 'navidrome/navidrome_repository.dart';
@@ -18,6 +21,7 @@ import 'state/app_logger.dart';
 import 'state/auth_controller.dart';
 import 'state/library_controller.dart';
 import 'state/lyrics_controller.dart';
+import 'state/lyrics_settings.dart';
 import 'state/offline_manager.dart';
 import 'state/player_controller.dart';
 import 'state/playlists_controller.dart';
@@ -84,6 +88,7 @@ class AuthGate extends StatelessWidget {
     this.repositoryOverride,
     this.audioEngineOverride,
     this.offlineDirectoryOverride,
+    this.lyricsProvidersOverride,
   });
 
   /// Bridges the session's [PlayerController] to the Android media
@@ -98,6 +103,10 @@ class AuthGate extends StatelessWidget {
 
   /// Test-only: skips path_provider's platform channel for [OfflineManager].
   final Directory? offlineDirectoryOverride;
+
+  /// Test-only: replaces the real internet lyrics providers (NetEase,
+  /// lrclib.net) so tests never touch the network.
+  final List<LyricsProvider>? lyricsProvidersOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -139,8 +148,14 @@ class AuthGate extends StatelessWidget {
                 ),
               ),
         ),
+        ChangeNotifierProvider<LyricsSettings>(create: (_) => LyricsSettings()..load()),
         Provider<LyricsController>(
-          create: (ctx) => LyricsController(ctx.read<NavidromeRepository>()),
+          create: (ctx) => LyricsController(
+            ctx.read<NavidromeRepository>(),
+            settings: ctx.read<LyricsSettings>(),
+            providers: lyricsProvidersOverride ?? [NeteaseProvider(), LrcLibProvider()],
+          ),
+          dispose: (_, controller) => controller.dispose(),
         ),
         ChangeNotifierProvider<LibraryController>(
           create: (ctx) => LibraryController(ctx.read<NavidromeRepository>())..refresh(),

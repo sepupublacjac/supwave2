@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../state/auth_controller.dart';
 import '../state/library_controller.dart';
 import '../state/offline_manager.dart';
+import '../widgets/lyrics_settings_section.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -54,6 +55,8 @@ class SettingsScreen extends StatelessWidget {
                       }
                     },
                   ),
+                  const SizedBox(height: 24),
+                  const LyricsSettingsSection(),
                   const SizedBox(height: 24),
                   Text('Storage', style: typography.emphasized.titleSmall),
                   const SizedBox(height: 8),

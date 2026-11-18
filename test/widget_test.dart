@@ -478,7 +478,14 @@ void main() {
 
     // Storage section: real (empty) offline-download state, not a fake stat.
     expect(find.text('Downloaded songs'), findsOneWidget);
-    expect(find.text('0'), findsOneWidget);
+    // Scoped to its row: the lyric offset field on this screen also shows "0".
+    expect(
+      find.descendant(
+        of: find.ancestor(of: find.text('Downloaded songs'), matching: find.byType(M3EListItem)),
+        matching: find.text('0'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Clear downloads'), findsOneWidget);
   });
 
