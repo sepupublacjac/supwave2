@@ -244,6 +244,36 @@ void main() {
       expect(_currentLine(tester), 'Third line');
     });
 
+    testWidgets('the sheet has - / + buttons that nudge the offset, and tapping the value resets it', (tester) async {
+      final h = await _openPlayer(tester, (repo) => repo.lyricsBySongId['s1'] = lines);
+      await _openLyricsSheet(tester);
+      expect(find.text('0 ms'), findsOneWidget);
+
+      await tester.tap(find.byIcon(M3EIcons.add));
+      await tester.tap(find.byIcon(M3EIcons.add));
+      await _settle(tester);
+      expect(h.settings.offsetMs, 200);
+      expect(find.text('+200 ms'), findsOneWidget);
+
+      await tester.tap(find.byIcon(M3EIcons.remove));
+      await _settle(tester);
+      expect(h.settings.offsetMs, 100);
+
+      await tester.tap(find.byKey(const ValueKey('lyric-offset-value')));
+      await _settle(tester);
+      expect(h.settings.offsetMs, 0);
+    });
+
+    testWidgets('lyrics without timing have no offset control', (tester) async {
+      await _openPlayer(
+        tester,
+        (repo) => repo.lyricsBySongId['s1'] = const Lyrics(lines: [LyricLine('Plain')], synced: false),
+      );
+      await _openLyricsSheet(tester);
+
+      expect(find.byKey(const ValueKey('lyric-offset-value')), findsNothing);
+    });
+
     testWidgets('changing the offset while the sheet is open takes effect at once', (tester) async {
       final h = await _openPlayer(tester, (repo) => repo.lyricsBySongId['s1'] = lines);
       await _openLyricsSheet(tester);

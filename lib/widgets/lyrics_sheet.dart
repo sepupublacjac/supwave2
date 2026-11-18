@@ -145,15 +145,27 @@ class _SongLyricsState extends State<_SongLyrics> {
 
         final view = lyrics.synced ? _SyncedLyrics(lyrics: lyrics) : _PlainLyrics(lyrics: lyrics);
         final source = lyrics.source;
-        if (source == null) return view;
+        if (source == null && !lyrics.synced) return view;
         return Column(
           children: [
             Expanded(child: view),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-              child: Text(
-                'Lyrics from $source',
-                style: theme.typography.baseline.bodySmall.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              padding: const EdgeInsets.fromLTRB(24, 4, 12, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: source == null
+                        ? const SizedBox.shrink()
+                        : Text(
+                            'Lyrics from $source',
+                            style: theme.typography.baseline.bodySmall.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                  ),
+                  // Offset only matters when lines carry timestamps.
+                  if (lyrics.synced) const _OffsetControl(),
+                ],
               ),
             ),
           ],
@@ -332,6 +344,53 @@ class _SyncedLyricsState extends State<_SyncedLyrics> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Nudges the global lyric offset without leaving the player: − / + step it,
+/// tapping the value resets it to 0. Positive shows lyrics later.
+class _OffsetControl extends StatelessWidget {
+  const _OffsetControl();
+
+  static const _step = 100;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = M3ETheme.of(context);
+    final settings = context.watch<LyricsSettings>();
+    final offset = settings.offsetMs;
+    final label = '${offset > 0 ? '+' : ''}$offset ms';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        M3EIconButton(
+          tooltip: 'Lyrics earlier',
+          icon: const Icon(M3EIcons.remove),
+          onPressed: () => settings.setOffsetMs(settings.offsetMs - _step),
+        ),
+        GestureDetector(
+          key: const ValueKey('lyric-offset-value'),
+          behavior: HitTestBehavior.opaque,
+          onTap: offset == 0 ? null : () => settings.setOffsetMs(0),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: theme.typography.baseline.labelLarge.copyWith(
+                color: offset == 0 ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+        M3EIconButton(
+          tooltip: 'Lyrics later',
+          icon: const Icon(M3EIcons.add),
+          onPressed: () => settings.setOffsetMs(settings.offsetMs + _step),
+        ),
+      ],
     );
   }
 }
