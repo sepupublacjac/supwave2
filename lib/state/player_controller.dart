@@ -53,6 +53,14 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   final PlayerSessionStore _sessionStore;
 
   List<Song> _queue = [];
+
+  /// A stable, unique id per queue *entry*, parallel to [_queue] and moved,
+  /// inserted and removed along with it. The same song can be queued several
+  /// times, so the song id can't identify a row - the queue sheet keys its
+  /// rows by this instead (see [queueEntryId]).
+  List<int> _entryIds = [];
+  int _nextEntryId = 0;
+  int _newEntryId() => _nextEntryId++;
   int _currentIndex = -1;
   bool _isPlaying = false;
   bool _shuffle = false;
@@ -106,6 +114,11 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
       : null;
 
   List<Song> get queue => List.unmodifiable(_queue);
+
+  /// Unique, stable id of the queue entry at [index] - unlike a song id, it
+  /// stays distinct when the same song is queued more than once, and it
+  /// follows the entry through reorders.
+  int queueEntryId(int index) => _entryIds[index];
   int get currentIndex => _currentIndex;
   bool get isPlaying => _isPlaying;
   bool get shuffle => _shuffle;
@@ -152,6 +165,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     if (session == null) return;
 
     _queue = session.queue;
+    _entryIds = List.generate(_queue.length, (_) => _newEntryId());
     _currentIndex = session.currentIndex;
     _setPosition(session.position);
     _shuffle = session.shuffle;
@@ -216,7 +230,21 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> playQueue(List<Song> songs, {int startIndex = 0}) async {
     if (songs.isEmpty) return;
     _queue = List.of(songs);
+    _entryIds = List.generate(_queue.length, (_) => _newEntryId());
     _currentIndex = startIndex;
+    _setPosition(Duration.zero);
+    if (_shuffle) _regenerateShuffleOrder();
+    notifyListeners();
+    await _loadCurrent();
+    _persistSession();
+  }
+
+  /// Jumps to the entry at [index] of the *current* queue, leaving the queue
+  /// itself (and its entry ids) untouched - what tapping a row of the queue
+  /// sheet means, as opposed to [playQueue], which replaces the queue.
+  Future<void> skipToQueueIndex(int index) async {
+    if (index < 0 || index >= _queue.length) return;
+    _currentIndex = index;
     _setPosition(Duration.zero);
     if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
@@ -234,6 +262,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
       return;
     }
     _queue.add(song);
+    _entryIds.add(_newEntryId());
     if (_shuffle) _regenerateShuffleOrder();
     AppLogger.instance.log('Added "${song.title}" to queue');
     notifyListeners();
@@ -262,9 +291,11 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (existingIndex != -1) {
       _queue.removeAt(existingIndex);
+      _entryIds.removeAt(existingIndex);
       if (existingIndex < _currentIndex) _currentIndex -= 1;
     }
     _queue.insert(_currentIndex + 1, song);
+    _entryIds.insert(_currentIndex + 1, _newEntryId());
     if (_shuffle) _regenerateShuffleOrder();
     AppLogger.instance.log('"${song.title}" will play next');
     notifyListeners();
@@ -396,6 +427,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     if (oldIndex < 0 || oldIndex >= _queue.length) return;
     final song = _queue.removeAt(oldIndex);
     _queue.insert(newIndex, song);
+    _entryIds.insert(newIndex, _entryIds.removeAt(oldIndex));
 
     if (_currentIndex == oldIndex) {
       _currentIndex = newIndex;
@@ -412,6 +444,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   void removeFromQueue(int index) {
     if (index < 0 || index >= _queue.length) return;
     _queue.removeAt(index);
+    _entryIds.removeAt(index);
 
     if (_queue.isEmpty) {
       _currentIndex = -1;

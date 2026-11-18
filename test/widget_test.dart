@@ -4,13 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:material_ui/material_ui.dart'
-    show BackButtonIcon, Hero, ReorderableListView, Scrollable, Size, Widget;
+    show BackButtonIcon, Dismissible, Hero, ReorderableListView, Scrollable, Size, Widget;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supwave_gen2/main.dart';
+import 'package:supwave_gen2/models/song.dart';
 import 'package:supwave_gen2/navidrome/playback_audio_handler.dart';
 import 'package:supwave_gen2/state/app_logger.dart';
 import 'package:supwave_gen2/state/auth_controller.dart';
+import 'package:supwave_gen2/state/player_controller.dart';
+import 'package:supwave_gen2/widgets/mini_player.dart';
 import 'package:supwave_gen2/widgets/song_tile.dart';
 
 import 'fakes/fake_audio_engine.dart';
@@ -610,4 +613,46 @@ void main() {
     },
   );
 
+  testWidgets('Queue sheet opens when the same song is in the queue more than once', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(buildAuthenticatedApp(FakeNavidromeRepository()));
+    await settle(tester);
+
+    // A song can legitimately appear several times: "Add to queue" doesn't
+    // dedupe, and a playlist can contain the same track twice.
+    const song = Song(
+      id: 'dup',
+      title: 'Duplicated song',
+      artist: 'Artist A',
+      artistId: 'ar1',
+      album: 'Album A',
+      albumId: 'al1',
+      duration: Duration(minutes: 3),
+    );
+    final controller = tester.element(find.byType(MiniPlayer)).read<PlayerController>();
+    await controller.playQueue([song]);
+    await controller.addToQueue(song);
+    await controller.addToQueue(song);
+    await settle(tester);
+    expect(controller.queue.length, 3);
+
+    await tester.tap(find.byType(MiniPlayer));
+    await settle(tester);
+    // The player screen scrolls; the toolbar sits below this test's fold.
+    await tester.ensureVisible(find.byIcon(M3EIcons.queue_music));
+    await settle(tester);
+    await tester.tap(find.byIcon(M3EIcons.queue_music));
+    await settle(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Dismissible), findsNWidgets(3));
+
+    // Swipe away the middle copy: only that entry may go, the others stay.
+    await tester.drag(find.byType(Dismissible).at(1), const Offset(-700, 0));
+    await settle(tester);
+    expect(tester.takeException(), isNull);
+    expect(controller.queue.length, 2);
+    expect(find.byType(Dismissible), findsNWidgets(2));
+  });
 }

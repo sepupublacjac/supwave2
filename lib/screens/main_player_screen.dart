@@ -379,12 +379,14 @@ class _QueueSheetListState extends State<_QueueSheetList> {
                   final song = queue[index];
                   final isCurrent = index == controller.currentIndex;
                   return Dismissible(
-                    // Keyed by song id alone: fine for the common case of no
-                    // duplicate songs in the queue. If the same song is
-                    // queued twice, swipe/reorder may attribute the action
-                    // to the wrong occurrence - a reasonable trade-off here
-                    // rather than introducing a separate queue-entry id.
-                    key: ValueKey(song.id),
+                    // Keyed per queue *entry*, not per song: the same song can
+                    // be in the queue several times ("Add to queue" doesn't
+                    // dedupe, and playlists can repeat a track), and
+                    // ReorderableListView turns each row key into a
+                    // GlobalKey - two rows sharing one key breaks the list.
+                    // The entry id also survives reorders and removals, which
+                    // Dismissible needs (a dismissed row's key must go away).
+                    key: ValueKey(controller.queueEntryId(index)),
                     direction: DismissDirection.endToStart,
                     onDismissed: (_) => controller.removeFromQueue(index),
                     background: Container(
@@ -407,8 +409,7 @@ class _QueueSheetListState extends State<_QueueSheetList> {
                             ? BorderSide(color: colorScheme.primary, width: 2)
                             : null,
                         padding: EdgeInsets.zero,
-                        onPressed: () =>
-                            controller.playQueue(queue, startIndex: index),
+                        onPressed: () => controller.skipToQueueIndex(index),
                         child: M3EListItem(
                           leading: SizedBox(
                             width: 44,

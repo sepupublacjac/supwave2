@@ -166,4 +166,59 @@ void main() {
       expect(controller.currentIndex, 0);
     });
   });
+
+  group('queue entry ids', () {
+    List<int> ids() => [for (var i = 0; i < controller.queue.length; i++) controller.queueEntryId(i)];
+
+    test('the same song queued several times gets distinct ids', () async {
+      final song = (await repo.getDashboard()).quickPicks.first;
+      await controller.playQueue([song]);
+      await controller.addToQueue(song);
+      await controller.addToQueue(song);
+
+      expect(controller.queue.length, 3);
+      expect(ids().toSet().length, 3);
+    });
+
+    test('an entry keeps its id when reordered, and is the one removed', () async {
+      final songs = (await repo.getDashboard()).quickPicks.take(4).toList();
+      await controller.playQueue(songs);
+      final before = ids();
+
+      controller.reorderQueue(0, 2);
+      expect(ids(), [before[1], before[2], before[0], before[3]]);
+
+      // Entry at index 1 is the old index 2 - removing it must drop that id.
+      controller.removeFromQueue(1);
+      expect(ids(), [before[1], before[0], before[3]]);
+    });
+
+    test('skipToQueueIndex changes the current track but not the queue or its ids', () async {
+      final songs = (await repo.getDashboard()).quickPicks.take(4).toList();
+      await controller.playQueue(songs);
+      final before = ids();
+
+      await controller.skipToQueueIndex(2);
+
+      expect(controller.currentIndex, 2);
+      expect(controller.currentSong?.id, songs[2].id);
+      expect(ids(), before);
+      expect(controller.queue.map((s) => s.id), songs.map((s) => s.id));
+    });
+
+    test('playNext gives the moved song a fresh entry and keeps every id unique', () async {
+      final songs = (await repo.getDashboard()).quickPicks.take(4).toList();
+      await controller.playQueue(songs);
+
+      await controller.playNext(songs[3]);
+
+      expect(controller.queue.map((s) => s.id).toList(), [
+        songs[0].id,
+        songs[3].id,
+        songs[1].id,
+        songs[2].id,
+      ]);
+      expect(ids().toSet().length, 4);
+    });
+  });
 }
