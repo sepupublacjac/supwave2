@@ -73,6 +73,7 @@ dependencies:
   # permission_handler_android 14.x, which needs compileSdk 37 (see
   # android/app/build.gradle.kts) and thus AGP 9.5+.
   permission_handler: ^13.0.2
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:

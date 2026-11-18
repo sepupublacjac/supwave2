@@ -1,5 +1,6 @@
 import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../models/album.dart';
@@ -90,11 +91,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const _ProfileStatRow(
-                        icon: M3EIcons.info,
-                        label: 'App version',
-                        value: '1.0.0 (1)',
-                      ),
+                      const _AppVersionRow(),
                       const M3EDivider(),
                       _ProfileStatRow(
                         icon: M3EIcons.dns,
@@ -262,6 +259,32 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The "App version" row of the profile sheet, read from the installed build
+/// (pubspec `version:` -> versionName + versionCode) rather than hardcoded, so
+/// it can't drift from what's actually installed.
+class _AppVersionRow extends StatelessWidget {
+  const _AppVersionRow();
+
+  /// Looked up once and reused: the installed version can't change while the
+  /// app is running.
+  static final Future<PackageInfo> _info = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _info,
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        return _ProfileStatRow(
+          icon: M3EIcons.info,
+          label: 'App version',
+          value: info == null ? '' : '${info.version} (${info.buildNumber})',
+        );
+      },
     );
   }
 }

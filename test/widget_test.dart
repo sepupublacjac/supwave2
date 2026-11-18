@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:material_ui/material_ui.dart'
     show BackButtonIcon, Hero, ReorderableListView, Scrollable, Size, Widget;
 import 'package:provider/provider.dart';
@@ -62,6 +63,15 @@ void main() {
     // this keeps them fast and hermetic instead of hitting a real platform
     // channel that doesn't exist under `flutter test`.
     SharedPreferences.setMockInitialValues({});
+    // PackageInfo.fromPlatform() is a platform channel, unavailable under
+    // `flutter test` - the profile sheet's "App version" row reads it.
+    PackageInfo.setMockInitialValues(
+      appName: 'Supwave',
+      packageName: 'com.megamendung.supwave2',
+      version: '1.2.3',
+      buildNumber: '45',
+      buildSignature: '',
+    );
     // AppLogger.instance is a process-wide singleton (all tests in this
     // file share one isolate), so without resetting it, entries logged by
     // one test leak into the next.
@@ -437,6 +447,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('App version'), findsOneWidget);
+    // Comes from the installed build (PackageInfo), not a hardcoded string.
+    expect(find.text('1.2.3 (45)'), findsOneWidget);
     expect(find.text('Server URL'), findsOneWidget);
     expect(find.text('Total songs'), findsOneWidget);
     expect(find.text('Logs'), findsOneWidget);
@@ -597,4 +609,5 @@ void main() {
       expect(titles, ['Song 1', 'Song 5', 'Song 2']);
     },
   );
+
 }
