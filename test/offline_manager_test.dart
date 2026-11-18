@@ -109,4 +109,95 @@ void main() {
     expect(second.isDownloaded(song.id), isTrue);
     expect(second.localPathFor(song.id), isNotNull);
   });
+
+  group('streaming download', () {
+    List<String> filesIn(Directory dir) =>
+        dir.listSync().map((e) => e.uri.pathSegments.where((p) => p.isNotEmpty).last).toList()..sort();
+
+    test('writes to disk as it receives data instead of buffering the whole file', () async {
+      int? partialBytesMidDownload;
+      final mockClient = MockClient.streaming((request, body) async {
+        Stream<List<int>> chunks() async* {
+          yield List.filled(1024, 7);
+          // Give the sink time to flush, then look at what's on disk while
+          // the response is still open: a buffering implementation has
+          // written nothing yet at this point.
+          final partial = File('${tempDir.path}/big.part');
+          for (var i = 0; i < 40; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            if (partial.existsSync() && partial.lengthSync() > 0) break;
+          }
+          partialBytesMidDownload = partial.existsSync() ? partial.lengthSync() : 0;
+          yield List.filled(1024, 8);
+        }
+
+        return http.StreamedResponse(chunks(), 200, contentLength: 2048);
+      });
+      final manager = OfflineManager(FakeNavidromeRepository(), httpClient: mockClient);
+      await manager.init(directoryOverride: tempDir);
+
+      await manager.download(_song('big'));
+
+      expect(partialBytesMidDownload, greaterThan(0));
+      expect(manager.isDownloaded('big'), isTrue);
+      expect(File(manager.localPathFor('big')!).lengthSync(), 2048);
+      expect(filesIn(tempDir), ['big'], reason: 'the .part file must be renamed away');
+    });
+
+    test('a connection that drops mid-download leaves no file and no .part behind', () async {
+      final mockClient = MockClient.streaming((request, body) async {
+        Stream<List<int>> chunks() async* {
+          yield List.filled(512, 1);
+          throw const SocketException('connection reset');
+        }
+
+        return http.StreamedResponse(chunks(), 200, contentLength: 4096);
+      });
+      final manager = OfflineManager(FakeNavidromeRepository(), httpClient: mockClient);
+      await manager.init(directoryOverride: tempDir);
+
+      await manager.download(_song('dropped'));
+
+      expect(manager.isDownloaded('dropped'), isFalse);
+      expect(manager.isDownloading('dropped'), isFalse);
+      expect(filesIn(tempDir), isEmpty);
+    });
+
+    test('a response shorter than its Content-Length is rejected, not kept', () async {
+      final mockClient = MockClient.streaming((request, body) async {
+        return http.StreamedResponse(Stream.value(List.filled(10, 1)), 200, contentLength: 100);
+      });
+      final manager = OfflineManager(FakeNavidromeRepository(), httpClient: mockClient);
+      await manager.init(directoryOverride: tempDir);
+
+      await manager.download(_song('short'));
+
+      expect(manager.isDownloaded('short'), isFalse);
+      expect(filesIn(tempDir), isEmpty);
+    });
+
+    test('an HTTP error status leaves nothing on disk', () async {
+      final mockClient = MockClient((request) async => http.Response('nope', 500));
+      final manager = OfflineManager(FakeNavidromeRepository(), httpClient: mockClient);
+      await manager.init(directoryOverride: tempDir);
+
+      await manager.download(_song('err'));
+
+      expect(manager.isDownloaded('err'), isFalse);
+      expect(manager.isDownloading('err'), isFalse);
+      expect(filesIn(tempDir), isEmpty);
+    });
+
+    test('init removes .part files left behind by a download that was killed', () async {
+      File('${tempDir.path}/killed.part').writeAsBytesSync([1, 2, 3]);
+      final manager = OfflineManager(
+        FakeNavidromeRepository(),
+        httpClient: MockClient((request) async => http.Response('', 200)),
+      );
+
+      await manager.init(directoryOverride: tempDir);
+
+      expect(filesIn(tempDir), isEmpty);
+    });
+  });
 }

@@ -16,6 +16,13 @@ class OfflineManager extends ChangeNotifier {
 
   static const _kDownloadedIds = 'offline_downloaded_song_ids';
 
+  /// How long to wait for the server to start responding, and then for each
+  /// next chunk of audio. There is deliberately no cap on the total download
+  /// time: a large lossless file on a slow connection is legitimately slow,
+  /// it just must keep making progress.
+  static const _connectTimeout = Duration(seconds: 60);
+  static const _stalledTimeout = Duration(seconds: 60);
+
   final NavidromeRepository _repo;
   final http.Client _http;
 
@@ -47,6 +54,15 @@ class OfflineManager extends ChangeNotifier {
       await _dir!.create(recursive: true);
     }
 
+    // A download interrupted by the app being killed leaves a half-written
+    // `.part` file behind. It can never be played (only finished files are
+    // renamed into place), so just reclaim the space.
+    await for (final entity in _dir!.list()) {
+      if (entity is File && entity.path.endsWith('.part')) {
+        await entity.delete();
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final savedIds = prefs.getStringList(_kDownloadedIds) ?? const [];
     for (final id in savedIds) {
@@ -73,13 +89,7 @@ class OfflineManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _http
-          .get(Uri.parse(_repo.streamUrl(song.id)))
-          .timeout(const Duration(minutes: 5));
-      if (response.statusCode != 200) {
-        throw Exception('Server returned HTTP ${response.statusCode}');
-      }
-      await File('${_dir!.path}/${song.id}').writeAsBytes(response.bodyBytes);
+      await _fetchToDisk(song);
       _downloadedIds.add(song.id);
       await _persist();
       AppLogger.instance.log('Downloaded "${song.title}" for offline playback');
@@ -88,6 +98,46 @@ class OfflineManager extends ChangeNotifier {
     } finally {
       _downloadingIds.remove(song.id);
       notifyListeners();
+    }
+  }
+
+  /// Streams [song] straight to disk instead of buffering it: `http.get`
+  /// holds the whole response in memory (and `writeAsBytes` then makes
+  /// another copy), which peaked at ~4x the file size - roughly 250 MB of
+  /// extra memory for a 64 MB lossless track.
+  ///
+  /// Written to `<id>.part` and renamed into place only once complete, so a
+  /// failed, truncated or killed download never leaves a file that looks
+  /// finished (and is later played as a corrupt track).
+  Future<void> _fetchToDisk(Song song) async {
+    final target = File('${_dir!.path}/${song.id}');
+    final partial = File('${target.path}.part');
+
+    final request = http.Request('GET', Uri.parse(_repo.streamUrl(song.id)));
+    final response = await _http.send(request).timeout(_connectTimeout);
+    if (response.statusCode != 200) {
+      await response.stream.drain<void>(); // release the connection
+      throw Exception('Server returned HTTP ${response.statusCode}');
+    }
+
+    final sink = partial.openWrite();
+    try {
+      await sink.addStream(response.stream.timeout(_stalledTimeout));
+      await sink.close();
+      final expected = response.contentLength;
+      final written = await partial.length();
+      if (expected != null && written != expected) {
+        throw Exception('Download was cut short ($written of $expected bytes)');
+      }
+      await partial.rename(target.path);
+    } catch (_) {
+      try {
+        await sink.close();
+      } catch (_) {
+        // Already failed; the original error below is the one that matters.
+      }
+      if (await partial.exists()) await partial.delete();
+      rethrow;
     }
   }
 
