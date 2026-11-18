@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 
 /// Thrown when the Subsonic server rejects a request or is unreachable.
 class SubsonicException implements Exception {
-  const SubsonicException(this.message, {this.code});
+  const SubsonicException(this.message, {this.code, this.httpStatus});
 
   final String message;
 
@@ -15,6 +15,10 @@ class SubsonicException implements Exception {
   /// returned a structured error response. `40` = wrong credentials,
   /// `50` = user not authorized, etc. Null for network/transport failures.
   final int? code;
+
+  /// HTTP status, when the server answered with something other than 200
+  /// (so there is no structured Subsonic error). Null otherwise.
+  final int? httpStatus;
 
   bool get isAuthError => code == 40 || code == 41;
 
@@ -112,7 +116,10 @@ class SubsonicClient {
     }
 
     if (response.statusCode != 200) {
-      throw SubsonicException('Server returned HTTP ${response.statusCode}');
+      throw SubsonicException(
+        'Server returned HTTP ${response.statusCode}',
+        httpStatus: response.statusCode,
+      );
     }
 
     final Map<String, dynamic> body;

@@ -1,5 +1,6 @@
 import 'package:supwave_gen2/models/album.dart';
 import 'package:supwave_gen2/models/artist.dart';
+import 'package:supwave_gen2/models/lyrics.dart';
 import 'package:supwave_gen2/models/playlist.dart';
 import 'package:supwave_gen2/models/song.dart';
 import 'package:supwave_gen2/navidrome/navidrome_repository.dart';
@@ -48,6 +49,15 @@ class FakeNavidromeRepository implements NavidromeRepository {
       'p2': [_songs[2], _songs[5]],
     };
   }
+
+  /// Lyrics returned by [getLyrics], by song id. Songs not listed have none.
+  final Map<String, Lyrics> lyricsBySongId = {};
+
+  /// When set, [getLyrics] throws this instead (e.g. to simulate being offline).
+  Object? lyricsError;
+
+  /// How many times [getLyrics] hit the "server".
+  int lyricsRequests = 0;
 
   late List<Song> _songs;
   late List<Playlist> _playlists;
@@ -232,4 +242,13 @@ class FakeNavidromeRepository implements NavidromeRepository {
 
   @override
   String streamUrl(String songId) => 'https://fake.test/stream/$songId';
+
+  @override
+  Future<Lyrics?> getLyrics(Song song) async {
+    lyricsRequests++;
+    final error = lyricsError;
+    if (error != null) throw error;
+    return lyricsBySongId[song.id];
+  }
+
 }

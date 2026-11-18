@@ -1,5 +1,6 @@
 import '../models/album.dart';
 import '../models/artist.dart';
+import '../models/lyrics.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
 import 'navidrome_repository.dart';
@@ -150,6 +151,38 @@ class NavidromeApiRepository implements NavidromeRepository {
     final status = response['scanStatus'] as Map<String, dynamic>?;
     return (status?['count'] as num?)?.toInt() ?? 0;
   }
+
+  @override
+  Future<Lyrics?> getLyrics(Song song) async {
+    try {
+      final response = await _client.get('getLyricsBySongId.view', {'id': song.id});
+      final list = response['lyricsList'];
+      final entries = list is Map<String, dynamic> ? list['structuredLyrics'] : null;
+      if (entries is! List) return null;
+      return Lyrics.pickBest([
+        for (final entry in entries)
+          if (entry is Map<String, dynamic>) Lyrics.fromStructured(entry),
+      ]);
+    } on SubsonicException catch (e) {
+      if (e.code == 70) return null; // "requested data was not found"
+      if (!_lacksEndpoint(e)) rethrow;
+    }
+
+    // Older servers: plain text only, matched by artist and title.
+    final response = await _client.get('getLyrics.view', {
+      'artist': song.artist,
+      'title': song.title,
+    });
+    final value = (response['lyrics'] as Map<String, dynamic>?)?['value'];
+    if (value is! String) return null;
+    final lyrics = Lyrics.fromPlainText(value);
+    return lyrics.isEmpty ? null : lyrics;
+  }
+
+  /// Whether [e] means the server doesn't implement the endpoint at all (as
+  /// opposed to a network failure, which has neither a code nor a status).
+  bool _lacksEndpoint(SubsonicException e) =>
+      e.code != null || e.httpStatus == 404 || e.httpStatus == 501;
 
   @override
   Future<SearchResults> search(String query) async {

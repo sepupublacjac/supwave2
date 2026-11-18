@@ -25,6 +25,8 @@ specifically on [Navidrome](https://www.navidrome.org/) as the backend.
 - Browse and search your music library, with playlists and liked songs
 - Real audio playback, with a persistent Android media notification
   (play/pause/next/stop) and a session that survives closing the app
+- Song lyrics, highlighted line by line and kept in view as the song plays when
+  your server has timed lyrics (plain text otherwise)
 - Offline downloads and album art caching
 - Playlist management (create, delete, add/remove songs)
 - Dynamic color and Material 3 Expressive styling throughout

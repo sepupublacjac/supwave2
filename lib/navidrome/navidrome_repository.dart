@@ -1,5 +1,6 @@
 import '../models/album.dart';
 import '../models/artist.dart';
+import '../models/lyrics.dart';
 import '../models/playlist.dart';
 import '../models/song.dart';
 
@@ -56,6 +57,12 @@ abstract class NavidromeRepository {
   Future<void> setStarred(String songId, bool starred);
 
   Future<int> getTotalSongCount();
+
+  /// Lyrics for [song], or null if the server has none. Uses OpenSubsonic's
+  /// `getLyricsBySongId` (which can carry per-line timing) and falls back to
+  /// the legacy plain-text `getLyrics` on servers without it. Throws if the
+  /// server can't be reached, so callers can tell "no lyrics" from "failed".
+  Future<Lyrics?> getLyrics(Song song);
 
   Future<SearchResults> search(String query);
 

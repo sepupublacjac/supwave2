@@ -17,6 +17,7 @@ import 'screens/login_screen.dart';
 import 'state/app_logger.dart';
 import 'state/auth_controller.dart';
 import 'state/library_controller.dart';
+import 'state/lyrics_controller.dart';
 import 'state/offline_manager.dart';
 import 'state/player_controller.dart';
 import 'state/playlists_controller.dart';
@@ -137,6 +138,9 @@ class AuthGate extends StatelessWidget {
                   password: auth.password!,
                 ),
               ),
+        ),
+        Provider<LyricsController>(
+          create: (ctx) => LyricsController(ctx.read<NavidromeRepository>()),
         ),
         ChangeNotifierProvider<LibraryController>(
           create: (ctx) => LibraryController(ctx.read<NavidromeRepository>())..refresh(),

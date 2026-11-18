@@ -7,6 +7,7 @@ import '../state/offline_manager.dart';
 import '../state/player_controller.dart';
 import '../widgets/add_to_playlist_sheet.dart';
 import '../widgets/album_art.dart';
+import '../widgets/lyrics_sheet.dart';
 import '../widgets/offline_actions.dart';
 import 'album_screen.dart';
 import 'artist_screen.dart';
@@ -276,6 +277,11 @@ class MainPlayerScreen extends StatelessWidget {
                         active: controller.repeatMode != PlayerRepeatMode.off,
                         tooltip: 'Repeat',
                         onPressed: controller.cycleRepeatMode,
+                      ),
+                      M3EToolbarAction(
+                        icon: M3EIcons.lyrics,
+                        tooltip: 'Lyrics',
+                        onPressed: () => showLyricsSheet(context),
                       ),
                       M3EToolbarAction(
                         icon: M3EIcons.queue_music,

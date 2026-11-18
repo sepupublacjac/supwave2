@@ -391,6 +391,15 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     await _seekEngine(target);
   }
 
+  /// Seeks to an absolute [position] (clamped to the current song), as
+  /// opposed to [seekTo]'s 0..1 fraction - e.g. tapping a synced lyric line.
+  Future<void> seekToPosition(Duration position) async {
+    final total = currentSong?.duration ?? Duration.zero;
+    var target = position < Duration.zero ? Duration.zero : position;
+    if (total > Duration.zero && target > total) target = total;
+    await _seekEngine(target);
+  }
+
   void toggleShuffle() {
     _shuffle = !_shuffle;
     if (_shuffle) _regenerateShuffleOrder();
