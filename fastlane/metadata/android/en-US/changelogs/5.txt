@@ -1,0 +1,7 @@
+New: song lyrics. Open them from the player; synced lyrics highlight the
+current line, follow playback and jump the song when tapped. Lyrics come from
+your server, or optionally NetEase and lrclib.net (off by default, see
+Settings > Lyrics), with translations and an adjustable offset.
+Fixes: correct app version in the profile sheet, a song queued twice no
+longer breaks the queue, and offline downloads no longer load whole files
+into memory.
