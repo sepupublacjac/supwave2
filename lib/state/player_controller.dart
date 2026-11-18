@@ -30,16 +30,19 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     PlayerSessionStore? sessionStore,
   }) : _engine = audioEngine ?? JustAudioEngine(),
        _sessionStore = sessionStore ?? PlayerSessionStore() {
-    _engine.playingStream.listen((playing) {
-      _isPlaying = playing;
-      notifyListeners();
-      _persistSession();
-    });
-    _engine.positionStream.listen((position) {
-      _position = position;
-      notifyListeners();
-    });
-    _engine.completedStream.listen((_) => _onTrackFinished());
+    _subscriptions.add(
+      _engine.playingStream.listen((playing) {
+        _isPlaying = playing;
+        notifyListeners();
+        _persistSession();
+      }),
+    );
+    // Deliberately NOT notifyListeners(): the engine reports a position every
+    // ~200ms while playing, and notifying here rebuilt every widget watching
+    // this controller (including a 300-row playlist) 5x/second. Only widgets
+    // that actually show the position listen to [positionListenable].
+    _subscriptions.add(_engine.positionStream.listen(_setPosition));
+    _subscriptions.add(_engine.completedStream.listen((_) => _onTrackFinished()));
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -56,6 +59,30 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   PlayerRepeatMode _repeatMode = PlayerRepeatMode.off;
   Duration _position = Duration.zero;
   final Set<String> _likedOverrides = {};
+  final List<StreamSubscription<Object?>> _subscriptions = [];
+  bool _disposed = false;
+
+  /// Playback position, updated ~every 200ms while playing. Kept out of
+  /// [notifyListeners] on purpose (see the constructor) - listen to this
+  /// instead, ideally with a `ValueListenableBuilder` scoped to just the
+  /// progress bar/label that needs it.
+  final ValueNotifier<Duration> positionListenable = ValueNotifier(Duration.zero);
+
+  void _setPosition(Duration value) {
+    if (_disposed) return;
+    _position = value;
+    positionListenable.value = value;
+  }
+
+  /// Seeks the engine and tells [notifyListeners] listeners about it. A seek
+  /// (unlike a regular position tick) is a discontinuity that things which
+  /// extrapolate the position on their own - the Android media notification -
+  /// must learn about, since they only resync when this controller notifies.
+  Future<void> _seekEngine(Duration target) async {
+    _setPosition(target);
+    notifyListeners();
+    await _engine.seek(target);
+  }
 
   /// A permutation of `_queue`'s indices, only meaningful while [_shuffle]
   /// is true: [next]/[previous] walk this order instead of `_queue`'s own,
@@ -90,10 +117,13 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     return _likedOverrides.contains(song.id) ? !baseline : baseline;
   }
 
-  double get progress {
+  double get progress => progressFor(_position);
+
+  /// [position] as a 0..1 fraction of the current song's length.
+  double progressFor(Duration position) {
     final total = currentSong?.duration.inMilliseconds ?? 0;
     if (total == 0) return 0;
-    return (_position.inMilliseconds / total).clamp(0.0, 1.0);
+    return (position.inMilliseconds / total).clamp(0.0, 1.0);
   }
 
   /// Fire-and-forget: called after every queue/track change and every
@@ -123,7 +153,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
     _queue = session.queue;
     _currentIndex = session.currentIndex;
-    _position = session.position;
+    _setPosition(session.position);
     _shuffle = session.shuffle;
     _repeatMode = PlayerRepeatMode.values.firstWhere(
       (mode) => mode.name == session.repeatModeName,
@@ -139,7 +169,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     final savedPosition = session.position;
     await _loadCurrent(autoplay: false);
     if (savedPosition > Duration.zero) {
-      await _engine.seek(savedPosition);
+      await _seekEngine(savedPosition);
     }
   }
 
@@ -156,7 +186,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _onTrackFinished() {
     if (_repeatMode == PlayerRepeatMode.one) {
-      _engine.seek(Duration.zero);
+      _seekEngine(Duration.zero);
       _engine.play();
     } else {
       next();
@@ -187,7 +217,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     if (songs.isEmpty) return;
     _queue = List.of(songs);
     _currentIndex = startIndex;
-    _position = Duration.zero;
+    _setPosition(Duration.zero);
     if (_shuffle) _regenerateShuffleOrder();
     notifyListeners();
     await _loadCurrent();
@@ -264,7 +294,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> stop() async {
     await _engine.stop();
-    _position = Duration.zero;
+    _setPosition(Duration.zero);
     notifyListeners();
   }
 
@@ -289,7 +319,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
       await _engine.stop();
       return;
     }
-    _position = Duration.zero;
+    _setPosition(Duration.zero);
     notifyListeners();
     await _loadCurrent();
   }
@@ -297,28 +327,28 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> previous() async {
     if (_queue.isEmpty) return;
     if (_position.inSeconds > 3) {
-      await _engine.seek(Duration.zero);
+      await _seekEngine(Duration.zero);
       return;
     }
     if (_shuffle) {
       final pos = _shuffleOrder.indexOf(_currentIndex);
       if (pos > 0) {
         _currentIndex = _shuffleOrder[pos - 1];
-        _position = Duration.zero;
+        _setPosition(Duration.zero);
         notifyListeners();
         await _loadCurrent();
         return;
       }
-      await _engine.seek(Duration.zero);
+      await _seekEngine(Duration.zero);
       return;
     }
     if (_currentIndex > 0) {
       _currentIndex--;
-      _position = Duration.zero;
+      _setPosition(Duration.zero);
       notifyListeners();
       await _loadCurrent();
     } else {
-      await _engine.seek(Duration.zero);
+      await _seekEngine(Duration.zero);
     }
   }
 
@@ -327,7 +357,7 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
     final target = Duration(
       milliseconds: (total.inMilliseconds * fraction.clamp(0.0, 1.0)).round(),
     );
-    await _engine.seek(target);
+    await _seekEngine(target);
   }
 
   void toggleShuffle() {
@@ -385,11 +415,11 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
     if (_queue.isEmpty) {
       _currentIndex = -1;
-      _position = Duration.zero;
+      _setPosition(Duration.zero);
       _engine.stop();
     } else if (index == _currentIndex) {
       _currentIndex = _currentIndex.clamp(0, _queue.length - 1);
-      _position = Duration.zero;
+      _setPosition(Duration.zero);
       _loadCurrent();
     } else if (index < _currentIndex) {
       _currentIndex -= 1;
@@ -401,7 +431,12 @@ class PlayerController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    positionListenable.dispose();
     _engine.dispose();
     super.dispose();
   }

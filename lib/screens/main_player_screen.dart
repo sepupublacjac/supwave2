@@ -482,28 +482,33 @@ class _ProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final song = controller.currentSong!;
     final typography = M3ETheme.of(context).typography;
-    return Column(
-      children: [
-        M3ESlider.wavy(
-          value: controller.progress,
-          trackThickness: 10,
-          onChanged: controller.seekTo,
-          onChangeEnd: controller.seekTo,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatDuration(controller.position),
-                style: typography.baseline.bodySmall,
-              ),
-              Text(song.durationLabel, style: typography.baseline.bodySmall),
-            ],
+    // The slider and elapsed-time label are the only things on this screen
+    // that change every ~200ms, so they alone listen to the position.
+    return ValueListenableBuilder<Duration>(
+      valueListenable: controller.positionListenable,
+      builder: (context, position, _) => Column(
+        children: [
+          M3ESlider.wavy(
+            value: controller.progressFor(position),
+            trackThickness: 10,
+            onChanged: controller.seekTo,
+            onChangeEnd: controller.seekTo,
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _formatDuration(position),
+                  style: typography.baseline.bodySmall,
+                ),
+                Text(song.durationLabel, style: typography.baseline.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

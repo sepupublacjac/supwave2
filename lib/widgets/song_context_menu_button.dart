@@ -30,7 +30,16 @@ class SongContextMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final playerController = context.read<PlayerController>();
-    final offline = context.watch<OfflineManager>();
+    // select, not watch: with one of these per row, watching the whole
+    // OfflineManager rebuilt every row's menu whenever any song's download
+    // state changed. Each row only cares about its own song.
+    final isDownloaded = context.select<OfflineManager, bool>(
+      (offline) => offline.isDownloaded(song.id),
+    );
+    final isDownloading = context.select<OfflineManager, bool>(
+      (offline) => offline.isDownloading(song.id),
+    );
+    final offline = context.read<OfflineManager>();
 
     return M3EMenu(
       anchorBuilder: (context, open) => M3EIconButton(
@@ -73,10 +82,10 @@ class SongContextMenuButton extends StatelessWidget {
             },
           ),
         M3EMenuToggleable(
-          label: offline.isDownloading(song.id) ? 'Downloading…' : 'Available offline',
+          label: isDownloading ? 'Downloading…' : 'Available offline',
           leading: const Icon(M3EIcons.download_for_offline),
-          checked: offline.isDownloaded(song.id),
-          enabled: !offline.isDownloading(song.id),
+          checked: isDownloaded,
+          enabled: !isDownloading,
           onChanged: (value) => setOfflineWithFeedback(context, offline, song, value),
         ),
         M3EMenuEntry(

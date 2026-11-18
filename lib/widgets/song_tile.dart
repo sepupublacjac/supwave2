@@ -9,7 +9,14 @@ import 'album_art.dart';
 import 'song_context_menu_button.dart';
 
 /// A list of songs rendered as a filled [M3EList] (grouped rows with
-/// dynamic corner rounding), replacing a plain [SliverList] of loose tiles.
+/// dynamic corner rounding).
+///
+/// This is a **sliver**: place it directly in a `CustomScrollView` (inside a
+/// `SliverPadding` if needed), *not* inside a `SliverToBoxAdapter`. It uses
+/// [M3EList.sliver], which builds only the rows near the viewport - the
+/// default [M3EList] constructor builds every row up front, which for a
+/// 300-song playlist meant 300 cover images and context menus created (and
+/// then rebuilt) at once.
 class SongTile extends StatelessWidget {
   const SongTile({
     super.key,
@@ -34,7 +41,7 @@ class SongTile extends StatelessWidget {
     final colorScheme = M3ETheme.of(context).colorScheme;
     final typography = M3ETheme.of(context).typography;
 
-    return M3EList(
+    return M3EList.sliver(
       variant: M3ECardVariant.filled,
       itemCount: songs.length,
       onTap: onSongTap,

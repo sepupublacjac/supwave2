@@ -252,12 +252,10 @@ class _SearchScreenState extends State<SearchScreen> {
               const _SectionHeader(title: 'Songs'),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverToBoxAdapter(
-                  child: SongTile(
-                    songs: results.songs,
-                    showAlbum: true,
-                    onSongTap: (index) => controller.playQueue(results.songs, startIndex: index),
-                  ),
+                sliver: SongTile(
+                  songs: results.songs,
+                  showAlbum: true,
+                  onSongTap: (index) => controller.playQueue(results.songs, startIndex: index),
                 ),
               ),
             ],

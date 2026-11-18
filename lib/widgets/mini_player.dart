@@ -40,12 +40,17 @@ class MiniPlayer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            M3EProgressIndicator.linear(
-              value: controller.progress,
-              linearSize: M3EProgressIndicatorSize.s,
-              strokeWidth: 2,
-              color: colorScheme.primary,
-              trackColor: colorScheme.surfaceContainerHighest,
+            // Only this bar follows the ~200ms position ticks; the rest of
+            // the mini player rebuilds on real state changes only.
+            ValueListenableBuilder<Duration>(
+              valueListenable: controller.positionListenable,
+              builder: (context, position, _) => M3EProgressIndicator.linear(
+                value: controller.progressFor(position),
+                linearSize: M3EProgressIndicatorSize.s,
+                strokeWidth: 2,
+                color: colorScheme.primary,
+                trackColor: colorScheme.surfaceContainerHighest,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

@@ -208,12 +208,10 @@ class _ArtistScreenState extends State<ArtistScreen> {
               ),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverToBoxAdapter(
-                  child: SongTile(
-                    songs: songs,
-                    showAlbum: true,
-                    onSongTap: (index) => controller.playQueue(songs, startIndex: index),
-                  ),
+                sliver: SongTile(
+                  songs: songs,
+                  showAlbum: true,
+                  onSongTap: (index) => controller.playQueue(songs, startIndex: index),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 24)),
